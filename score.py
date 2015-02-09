@@ -111,7 +111,7 @@ class Word():
 		suffix_score = self.get_affix_score(pars.suffix, SUFFIXES)
 		affix_score = prefix_score * suffix_score
 
-		# It's more interesting id pars is not directly at the start or end of toto.
+		# It's more interesting if pars is not directly at the start or end of toto.
 		position_score = self.get_position_score(pars)
 		
 		# Assign extra points if "phoneme boundaries" are crossed.
