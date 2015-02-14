@@ -50,7 +50,8 @@ def post(path):
     while not tweeted:      
         
         # retrieving word pairs
-        row = c.execute("select * from Substring where Score >= 1 and posted = 0 order by random() limit 1").fetchone()        # any pair of words
+        row = c.execute("select * from Substring where posted = 0 order by random() limit 1").fetchone()        # any pair of words
+        #row = c.execute("select * from Substring where Score >= 1 and posted = 0 order by random() limit 1").fetchone()        # any pair of words
         #row = c.execute('select * from Substring where SubstringID in (select WortID from Morph where features like "%Masc%" or features like "%Fem%" or features like "%Neut%") and Score >= 1 and posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + NN        
         #row = c.execute('select * from Substring where SubstringID in (select WortID from Morph where features like "%pos%") and Score >= 1 and posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + ADJ
         #row = c.execute('select * from Substring where SubstringID in (select WortID from Morph where features like "3%Pres_Ind") and Score >= 1 and posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + verb
