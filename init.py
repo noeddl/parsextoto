@@ -20,14 +20,17 @@ cursor = connection.cursor()
 
 cursor.execute("DROP TABLE IF EXISTS Wort")
 cursor.execute("DROP TABLE IF EXISTS Morph")
+cursor.execute("DROP TABLE IF EXISTS Features")
 
 cursor.execute('CREATE TABLE Wort (WortID INTEGER PRIMARY KEY, Wort TEXT, POS TEXT, Morpheme TEXT)')
-cursor.execute('CREATE TABLE Morph (WortID INTEGER, Features TEXT)')
+cursor.execute('CREATE TABLE Morph (WortID INTEGER, FeatureID INTEGER)')
+cursor.execute('CREATE TABLE Features (FeatureID INTEGER PRIMARY KEY, Features TEXT)')
 
 word_id = 0
 done = True
 first_analysis = False
 forms = {}
+feat_ids = {}
 
 for line in f:
 	line = line.strip()
@@ -112,7 +115,16 @@ for line in f:
 
 					first_analysis = False
 				
-				cursor.execute(u'INSERT INTO Morph (WortID, Features) VALUES (%s, "%s")' % (word_id, '_'.join(feats)))
+				feat_str = "%s:%s" % (tag, '_'.join(feats))
+
+				feat_id = feat_ids.get(feat_str)
+
+				if not feat_id:
+					feat_id = len(feat_ids) + 1
+					feat_ids[feat_str] = feat_id
+					cursor.execute(u'INSERT INTO Features (FeatureID, Features) VALUES (%s, "%s")' % (feat_id, feat_str))
+
+				cursor.execute(u'INSERT INTO Morph (WortID, FeatureID) VALUES (%s, "%s")' % (word_id, feat_id))
 	
 
 			
