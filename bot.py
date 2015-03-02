@@ -50,6 +50,7 @@ def post(path):
     while not tweeted:      
         
         # retrieving word pairs
+        #row = c.execute("select * from valentin where Score >= 1 and posted = 0 order by random() limit 1").fetchone()      # valentine's day <3
         row = c.execute("select * from Substring where Score >= 1 and posted = 0 order by random() limit 1").fetchone()        # any pair of words
         #row = c.execute('select * from Substring where SubstringID in (select WortID from Morph where features like "%Masc%" or features like "%Fem%" or features like "%Neut%") and Score >= 1 and posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + NN        
         #row = c.execute('select * from Substring where SubstringID in (select WortID from Morph where features like "%pos%") and Score >= 1 and posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + ADJ
@@ -166,7 +167,7 @@ def post(path):
             api.update_status(output)
             
             # mark combination as already posted
-            update = 'UPDATE substring set posted=1 where WortID = %d and SubstringID = %d' % (longID, shortID)
+            update = 'UPDATE Substring set posted=1 where WortID = %d and SubstringID = %d' % (longID, shortID)
             success = c.execute(update)
             if success:
                 conn.commit()
