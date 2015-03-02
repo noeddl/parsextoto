@@ -136,6 +136,37 @@ def makeVSentence(longword, shortword, long_features, short_features):
 
     return sentence
 
+def makeNPSentence(longword, shortword, long_features, shortword_gender):
+    sentence = ""
+    NP_patterns_female = {"Masc_Nom_Sg":[u"Der %s ist eine Erfindung von %s."],
+                          "Fem_Nom_Sg": [u"Die %s ist eine Erfindung von %s."],
+                          "Neut_Nom_Sg": [u"Das %s ist eine Erfindung von %s."],
+                          "Masc_Nom_Pl": [u"%s wurden von %s erfunden."],
+                          "Fem_Nom_Pl": [u"%s wurden von %s erfunden."],
+                          "Neut_Nom_Pl": [u"%s wurden von %s erfunden."],
+                          "Masc_Acc_Pl": [u"Die beste Expertin für %s ist %s."],
+                          "Fem_Acc_Pl": [u"Die beste Expertin für %s ist %s."],
+                          "Neut_Acc_Pl": [u"Die beste Expertin für %s ist %s."]}
+
+    NP_patterns_male = {"Masc_Nom_Sg":[u"Der %s ist eine Erfindung von %s."],
+                          "Fem_Nom_Sg": [u"Die %s ist eine Erfindung von %s."],
+                          "Neut_Nom_Sg": [u"Das %s ist eine Erfindung von %s."],
+                          "Masc_Nom_Pl": [u"%s wurden von %s erfunden."],
+                          "Fem_Nom_Pl": [u"%s wurden von %s erfunden."],
+                          "Neut_Nom_Pl": [u"%s wurden von %s erfunden."],
+                          "Masc_Acc_Pl": [u"Der beste Experte für %s ist %s."],
+                          "Fem_Acc_Pl": [u"Der beste Experte für %s ist %s."],
+                          "Neut_Acc_Pl": [u"Der beste Experte für %s ist %s."]}
+
+    if shortword_gender == "w":
+        if long_features in NP_patterns_female:
+            sentence = NP_patterns_female[long_features][random.randint(0,len(NP_patterns_female[long_features])-1)] % (longword, shortword)
+    else:
+        if long_features in NP_patterns_male:
+            sentence = NP_patterns_male[long_features][random.randint(0,len(NP_patterns_male[long_features])-1)] % (longword, shortword)
+
+    return sentence
+
 def post(path, debug = False):
     
     api = login()
@@ -155,8 +186,9 @@ def post(path, debug = False):
         # retrieving word pairs if we want to choose any random pair of words:
         # row = c.execute("select * from Substring where posted = 0 order by random() limit 1").fetchone()
 
-        # decide what kind of POS pair we want to tweet - 1 in 9 will be NN-NN, 4 in 9 will be NN-ADJ, 4 in 9 will be NN-V
-        posChoice = random.randint(0, 8)
+        # decide what kind of POS pair we want to tweet - 1 in 20 will be NN-NN, 4 in 20 will be NN-ADJ, 4 in 20 will be NN-V
+        # all other choices are currently proper names!
+        posChoice = random.randint(0, 19)
 
         output = ""        # default output
 
@@ -181,7 +213,7 @@ def post(path, debug = False):
                 (longword, shortword, long_features, short_features) = getInfoFromDB(longID, shortID, c, c1, c2)
                 output = makeADJSentence(longword, shortword, long_features, short_features)
 
-        else:                           # NN-V choice
+        elif 5 <= posChoice <= 8:                           # NN-V choice
             row = c.execute('select * from Substring where SubstringID in (select WortID from Wort where POS = "V") and Score >= 0.5 and posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + verb
             if row == None:
                 errorAlert(api, u"Keine NN-V-Paare mit den erforderlichen Score- und Posted-Werten mehr übrig! :(")
@@ -191,7 +223,26 @@ def post(path, debug = False):
                 (longword, shortword, long_features, short_features) = getInfoFromDB(longID, shortID, c, c1, c2)
                 output = makeADJSentence(longword, shortword, long_features, short_features)
 
+        else:                   # Proper Name choice! \o/
+            row = c.execute('select * from NameSubstring where posted = 0 order by random() limit 1').fetchone()       # only pairs of NN + Proper Names
+            if row == None:
+                errorAlert(api, u"Ein Problem mit Eigennamen ist aufgetreten. :(")
+            else:
+                longID = row[0]
+                shortID = row[1]
+                get_longword = 'select * from Wort where WortID = %d' % (longID)
+                longword = c1.execute(get_longword).fetchone()[1]
+                get_shortword = 'select * from Name where NameID = %d' % (shortID)
+                shortword = c2.execute(get_shortword).fetchone()[1]
 
+                # retrieving morphological info for long word (not relevant for short word, because it's a proper name)
+                long_query = 'select features from Morph where WortID = %d' % (longID)
+                long_features = c.execute(long_query).fetchone()[0]
+
+                short_query = 'select Gender from Name where NameID = %d' % (shortID)
+                shortword_gender = c.execute(short_query).fetchone()[0]
+
+                output = makeNPSentence(longword, shortword, long_features, shortword_gender)
         """
         TODO:
         
@@ -205,6 +256,8 @@ def post(path, debug = False):
 
 
 	      - KeyError behandeln/vermeiden
+
+	      - zusätzliche Sätze für Eigennamen ergänzen
 		    
         """
 
@@ -214,7 +267,11 @@ def post(path, debug = False):
                 api.update_status(output)
 
                 # mark combination as already posted
-                update = 'UPDATE Substring set posted=1 where WortID = %d and SubstringID = %d' % (longID, shortID)
+                if posChoice <= 8:
+                    update = 'UPDATE Substring set posted=1 where WortID = %d and SubstringID = %d' % (longID, shortID)
+                else:
+                    update = 'UPDATE NameSubstring set posted=1 where WortID = %d and NameID = %d' % (longID, shortID)
+
                 success = c.execute(update)
                 if success:
                     conn.commit()
