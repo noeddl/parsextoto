@@ -52,14 +52,25 @@ def post(path):
     while not tweeted:      
 
         # retrieving word pairs
+        # cmd = """
+        #     SELECT W1.WortID as totoID, W2.WortID as parsID,
+        #            W1.Wort as toto, W2.Wort as pars
+        #     FROM Substring as S join Wort as W1 on(S.WortID = W1.WortID) join Wort as W2 on(S.SubstringID = W2.WortID)
+        #     WHERE posted = 0 order by random() limit 1
+        # """
+
         cmd = """
             SELECT W1.WortID as totoID, W2.WortID as parsID,
                    W1.Wort as toto, W2.Wort as pars
             FROM Substring as S join Wort as W1 on(S.WortID = W1.WortID) join Wort as W2 on(S.SubstringID = W2.WortID)
-            WHERE posted = 0 order by random() limit 1
+            order by random() limit 1
         """
 
         row = c.execute(cmd).fetchone()
+
+        toto = row['toto']
+        pars = row['pars']
+        #print toto, pars
 
         # Get all possible morphological analyses for toto and pars.
         totoFeatList = c.execute("SELECT FeatureID FROM Morph WHERE WortID = %s" % row['totoID']).fetchall()
@@ -70,19 +81,32 @@ def post(path):
         parsFeatStr = " or ".join(map(lambda x: 'F2.FeatureID = %s' % x,  [x[0] for x in parsFeatList]))
 
         if totoFeatStr and parsFeatStr:
+            # Enter TemplateID to test one specific template.
+            templateID = None
+            test = ''
+            if templateID:
+                test = "and TemplateID = " + str(templateID)
+
             cmd = """
-                SELECT TemplateID, Template, TotoPattern, ParsPattern,
+                SELECT TemplateID, Template, TotoPattern, ParsPattern, SameGender, Suffix,
                        F1.Features as TotoFeatures, F2.Features as ParsFeatures,
                        F1.DeterminerID as TotoDetID, F2.DeterminerID as ParsDetID 
                 FROM Template as T
                         join FeaturePattern as FP1 on (T.TotoPattern = FP1.PatternName) join Features as F1 on (FP1.FeatureID = F1.FeatureID)
                         join FeaturePattern as FP2 on (T.ParsPattern = FP2.PatternName) join Features as F2 on (FP2.FeatureID = F2.FeatureID)
-                WHERE (%s) and (%s) ORDER BY random() limit 1
-            """ % (totoFeatStr, parsFeatStr)
+                WHERE (%s) and (%s) %s ORDER BY random() limit 1
+            """ % (totoFeatStr, parsFeatStr, test)
 
             sen_row = c.execute(cmd).fetchone()
 
             if sen_row:
+
+                if sen_row['SameGender'] and not same_gender(sen_row['TotoFeatures'], sen_row['ParsFeatures']):
+                    continue
+
+                if sen_row['Suffix'] and not toto.endswith(pars.lower()):
+                    continue
+
                 sentence = sen_row['Template']
 
                 # Get the right determiner row for toto and pars
@@ -100,12 +124,48 @@ def post(path):
                 #api.update_status(output)
                     
                 # mark combination as already posted
-                update = 'UPDATE substring set posted=1 where WortID = %d and SubstringID = %d' % (row['totoID'], row['parsID'])
-                success = c.execute(update)
-                if success:
-                    conn.commit()
+                #update = 'UPDATE substring set posted=1 where WortID = %d and SubstringID = %d' % (row['totoID'], row['parsID'])
+                #success = c.execute(update)
+                #if success:
+                #    conn.commit()
                         
                 tweeted = True
+
+def same_gender(totoFeat, parsFeat):
+    for gen in ['Neut', 'Masc', 'Fem']:
+        if gen in totoFeat and gen in parsFeat:
+            return True
+    return False
+
+def test(path):
+    # establishing connection to database that contains our vocabulary etc.
+    conn = sqlite3.connect(path)
+    # enable name-based access to columns
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c1 = conn.cursor()
+
+    cmd = """
+        SELECT TemplateID, Template, TotoPattern, ParsPattern,
+               F1.Features as TotoFeatures, F2.Features as ParsFeatures,
+               F1.FeatureID as TotoFeatID, F2.FeatureID as ParsFeatID,
+               F1.DeterminerID as TotoDetID, F2.DeterminerID as ParsDetID
+        FROM Template as T
+               join FeaturePattern as FP1 on (T.TotoPattern = FP1.PatternName) join Features as F1 on (FP1.FeatureID = F1.FeatureID)
+               join FeaturePattern as FP2 on (T.ParsPattern = FP2.PatternName) join Features as F2 on (FP2.FeatureID = F2.FeatureID)
+        WHERE TemplateID = 1"""
+
+    for row in c.execute(cmd):
+        cmd2 = """
+            SELECT * 
+            FROM Wort join Morph as M1 on (Wort.WortID = M1.WortID) join
+                 Substring join Morph as M2 on (Substring.WortID = M1.WortID)
+            WHERE M1.FeatureID=%s and M2.FeatureID=%s
+        """ % (row['TotoFeatID'], row['ParsFeatID'])
+
+        for r in c1.execute(cmd2):
+            print r
+        #print row
         
 class Word():
 
@@ -127,3 +187,5 @@ def end(s):
     return s            
 
 post("parsextoto.sqlite")
+#test("parsextoto.sqlite")
+

@@ -9,12 +9,12 @@ connection.row_factory = sqlite3.Row
 
 cursor = connection.cursor()
 
-cursor.execute("DROP TABLE IF EXISTS Substring")
-cursor.execute('CREATE TABLE Substring (WortID INTEGER, SubstringID INTEGER, Score FLOAT, posted BOOL)')
+#cursor.execute("DROP TABLE IF EXISTS Substring")
+#cursor.execute('CREATE TABLE Substring (WortID INTEGER, SubstringID INTEGER, Score FLOAT, posted BOOL)')
 
 # Some prefixes and suffixes that make a pars less interesting.
 PREFIXES = ['ab', 'an', 'auf']
-SUFFIXES = ['ant', 'atisier', 'atik', 'e', 'ei', 'en', 'er', 'es', 'heit', 'iat', 'ien', 'ier', 'ig', 'igkeit', 'ik', 'innen', 'isier', 'ium', 'keit', 'ler', 'n', 'nen', 'ner', 'r', 'rer', 's', 'ten', 'ung', 'ur']
+SUFFIXES = ['ant', 'atisier', 'atik', 'e', 'ei', 'en', 'er', 'es', 'heit', 'iat', 'ien', 'ier', 'ig', 'igkeit', 'ik', 'inne', 'innen', 'isier', 'ium', 'keit', 'ler', 'n', 'nen', 'ner', 'r', 'rer', 's', 'ten', 'ung', 'ur']
 
 class Word():
 
@@ -122,14 +122,15 @@ class Word():
 
 		return score
 
-	def find_parse(self):
+	def find_pars(self):
 		# Loop over substrings of toto.
 		for i in range(len(self.word)):
 			# pars has has to be at least 3 characters long.
 			for j in range(i+3, len(self.word)+1):
 				# Ignore pars if it is equal to toto.
 				if i > 0 or j < len(self.word):
-					pars = pars_dict.get(self.word[i:j])
+					w = self.word[i:j]
+					pars = pars_dict.get(w) or pars_dict.get(w.capitalize()) or pars_dict.get(w.lower())
 					if pars:
 						pars.start = i
 						pars.end = j
@@ -140,7 +141,31 @@ class Word():
 toto_list = []
 pars_dict = {}
 
-# Collect all the words from the database.
+# #row = c.execute("select * from Substring where posted = 0 order by random() limit 1").fetchone()
+
+# row = cursor.execute('SELECT * FROM Wort WHERE POS = "NN" ORDER BY random() limit 1').fetchone()
+
+# #w = Word(row)
+# w = row['Wort']
+
+# pars_list = []
+
+# for i in range(len(w)):
+# 	# pars has has to be at least 3 characters long.
+# 	for j in range(i+3, len(w)+1):
+# 		# Ignore pars if it is equal to toto.
+# 		if i > 0 or j < len(w):
+# 			pars = w[i:j]
+# 			cmd = 'SELECT * FROM Wort WHERE Wort="%s" OR Wort="%s" OR Wort="%s"' % (pars, pars.lower(), pars.capitalize())
+# 			print cmd
+# 			cursor = connection.cursor()
+# 			print cursor.execute(cmd).fetchall()
+
+# print ' or '.join(pars_list)
+
+#for row in cursor:
+
+#Collect all the words from the database.
 for row in cursor.execute('SELECT * FROM Wort'):
 	w = Word(row)
 
@@ -150,10 +175,19 @@ for row in cursor.execute('SELECT * FROM Wort'):
 	if w.pos == 'NN':
 		toto_list.append(w)
 
+pairs = {}
+
+for row in cursor.execute('SELECT * FROM Substring'):
+	k = "%s_%s" % (row['WortID'], row['SubstringID'])
+	pairs[k] = True
+
 # Find pars for toto!
 for toto in toto_list:
-	for pars, score in toto.find_parse():
-		#print "%s\t%s\t%.2f" % (toto.word, pars.word, score)
-		cursor.execute('INSERT INTO Substring (WortID, SubstringID, Score, posted) VALUES (%s, %s, %.2f, 0)' % (toto.id, pars.id, score))	
+	for pars, score in toto.find_pars():
+		# Insert only if the entry does not exist yet.
+		if not pairs.get("%s_%s" % (toto.id, pars.id)):
+			#print "%s\t%s\t%.2f" % (toto.word, pars.word, score)
+ 			cursor.execute('INSERT INTO Substring (WortID, SubstringID, Score, posted) VALUES (%s, %s, %.2f, 0)' % (toto.id, pars.id, score))	
 
 connection.commit()
+
