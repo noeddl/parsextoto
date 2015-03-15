@@ -9,12 +9,12 @@ connection.row_factory = sqlite3.Row
 
 cursor = connection.cursor()
 
-cursor.execute("DROP TABLE IF EXISTS Substring")
-cursor.execute('CREATE TABLE Substring (WortID INTEGER, SubstringID INTEGER, Score FLOAT, posted BOOL)')
+#cursor.execute("DROP TABLE IF EXISTS Substring")
+#cursor.execute('CREATE TABLE Substring (WortID INTEGER, SubstringID INTEGER, Score FLOAT, posted BOOL)')
 
 # Some prefixes and suffixes that make a pars less interesting.
 PREFIXES = ['ab', 'an', 'auf']
-SUFFIXES = ['ant', 'atisier', 'atik', 'e', 'ei', 'en', 'er', 'es', 'heit', 'iat', 'ien', 'ier', 'ig', 'igkeit', 'ik', 'innen', 'isier', 'ium', 'keit', 'ler', 'n', 'nen', 'ner', 'r', 'rer', 's', 'ten', 'ung', 'ur']
+SUFFIXES = ['ant', 'atisier', 'atik', 'e', 'ei', 'en', 'er', 'es', 'heit', 'iat', 'ien', 'ier', 'ig', 'igkeit', 'ik', 'inne', 'innen', 'isier', 'ium', 'keit', 'ler', 'n', 'nen', 'ner', 'r', 'rer', 's', 'ten', 'ung', 'ur']
 
 class Word():
 
@@ -129,7 +129,8 @@ class Word():
 			for j in range(i+3, len(self.word)+1):
 				# Ignore pars if it is equal to toto.
 				if i > 0 or j < len(self.word):
-					pars = pars_dict.get(self.word[i:j])
+					w = self.word[i:j]
+					pars = pars_dict.get(w) or pars_dict.get(w.capitalize()) or pars_dict.get(w.lower())
 					if pars:
 						pars.start = i
 						pars.end = j
@@ -150,10 +151,18 @@ for row in cursor.execute('SELECT * FROM Wort'):
 	if w.pos == 'NN':
 		toto_list.append(w)
 
+pairs = {}
+
+for row in cursor.execute('SELECT * FROM Substring'):
+	k = "%s_%s" % (row['WortID'], row['SubstringID'])
+	pairs[k] = True
+
 # Find pars for toto!
 for toto in toto_list:
 	for pars, score in toto.find_parse():
-		#print "%s\t%s\t%.2f" % (toto.word, pars.word, score)
-		cursor.execute('INSERT INTO Substring (WortID, SubstringID, Score, posted) VALUES (%s, %s, %.2f, 0)' % (toto.id, pars.id, score))	
+		# Insert only if the entry does not exist yet.
+		if not pairs.get("%s_%s" % (toto.id, pars.id)):
+			#print "%s\t%s\t%.2f" % (toto.word, pars.word, score)
+			cursor.execute('INSERT INTO Substring (WortID, SubstringID, Score, posted) VALUES (%s, %s, %.2f, 0)' % (toto.id, pars.id, score))	
 
 connection.commit()
