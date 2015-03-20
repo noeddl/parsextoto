@@ -46,10 +46,10 @@ def post(path):
     c2 = conn.cursor()
     
 
-    #while True:            # if you want to tweet without pauses (floods timeline!)
+    while True:            # if you want to tweet without pauses (floods timeline!)
     
-    tweeted = False         # set tweeted to an integer if you want to tweet e.g. 3x in a row
-    while not tweeted:      
+    #tweeted = False         # set tweeted to an integer if you want to tweet e.g. 3x in a row
+    #while not tweeted:      
 
         # retrieving word pairs
         # cmd = """
@@ -100,6 +100,8 @@ def post(path):
             sen_row = c.execute(cmd).fetchone()
 
             if sen_row:
+                #print sen_row.keys()
+                #print sen_row
 
                 if sen_row['SameGender'] and not same_gender(sen_row['TotoFeatures'], sen_row['ParsFeatures']):
                     continue
@@ -109,25 +111,29 @@ def post(path):
 
                 sentence = sen_row['Template']
 
-                # Get the right determiner row for toto and pars
-                det_toto = c.execute('SELECT * FROM Determiner WHERE DeterminerID=%s' % (sen_row['TotoDetID'])).fetchone()
-                det_pars = c.execute('SELECT * FROM Determiner WHERE DeterminerID=%s' % (sen_row['TotoDetID'])).fetchone()
+                totoDetID = sen_row['TotoDetID']
+                parsDetID = sen_row['ParsDetID']
 
-                toto = Word(row['toto'], det_toto)
-                pars = Word(row['pars'], det_pars)
+                if totoDetID and parsDetID:
+                    # Get the right determiner row for toto and pars
+                    det_toto = c.execute('SELECT * FROM Determiner WHERE DeterminerID=%s' % totoDetID).fetchone()
+                    det_pars = c.execute('SELECT * FROM Determiner WHERE DeterminerID=%s' % parsDetID).fetchone()
 
-                s = sentence.format(toto=toto, pars=pars)
-                s = end(s)
-                output = s[0].capitalize() + s[1:]
+                    toto = Word(row['toto'], det_toto)
+                    pars = Word(row['pars'], det_pars)
 
-                print(output)
-                #api.update_status(output)
+                    s = sentence.format(toto=toto, pars=pars)
+                    s = end(s)
+                    output = s[0].capitalize() + s[1:]
+
+                    print(output)
+                    #api.update_status(output)
                     
-                # mark combination as already posted
-                #update = 'UPDATE substring set posted=1 where WortID = %d and SubstringID = %d' % (row['totoID'], row['parsID'])
-                #success = c.execute(update)
-                #if success:
-                #    conn.commit()
+                    # mark combination as already posted
+                    #update = 'UPDATE substring set posted=1 where WortID = %d and SubstringID = %d' % (row['totoID'], row['parsID'])
+                    #success = c.execute(update)
+                    #if success:
+                    #    conn.commit()
                         
                 tweeted = True
 
@@ -136,36 +142,6 @@ def same_gender(totoFeat, parsFeat):
         if gen in totoFeat and gen in parsFeat:
             return True
     return False
-
-def test(path):
-    # establishing connection to database that contains our vocabulary etc.
-    conn = sqlite3.connect(path)
-    # enable name-based access to columns
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c1 = conn.cursor()
-
-    cmd = """
-        SELECT TemplateID, Template, TotoPattern, ParsPattern,
-               F1.Features as TotoFeatures, F2.Features as ParsFeatures,
-               F1.FeatureID as TotoFeatID, F2.FeatureID as ParsFeatID,
-               F1.DeterminerID as TotoDetID, F2.DeterminerID as ParsDetID
-        FROM Template as T
-               join FeaturePattern as FP1 on (T.TotoPattern = FP1.PatternName) join Features as F1 on (FP1.FeatureID = F1.FeatureID)
-               join FeaturePattern as FP2 on (T.ParsPattern = FP2.PatternName) join Features as F2 on (FP2.FeatureID = F2.FeatureID)
-        WHERE TemplateID = 1"""
-
-    for row in c.execute(cmd):
-        cmd2 = """
-            SELECT * 
-            FROM Wort join Morph as M1 on (Wort.WortID = M1.WortID) join
-                 Substring join Morph as M2 on (Substring.WortID = M1.WortID)
-            WHERE M1.FeatureID=%s and M2.FeatureID=%s
-        """ % (row['TotoFeatID'], row['ParsFeatID'])
-
-        for r in c1.execute(cmd2):
-            print r
-        #print row
         
 class Word():
 
@@ -175,15 +151,17 @@ class Word():
         self.ein = None
         self.jedes = None
         self.kein = None
+        self.welches = None
         if det_row:
             self.das = det_row['das']
             self.ein = det_row['ein']
             self.jedes = det_row['jedes']
             self.kein = det_row['kein']
+            self.welches = det_row['welches']
 
 def end(s):
     if not s[-1] in ['.', '!', '?']:
-        return s + random.choice(['.', '!', ' ...'])
+        return s + random.choice(['.', '!'])
     return s            
 
 post("parsextoto.sqlite")
