@@ -4,38 +4,90 @@
 import random
 import sqlite3
 
+# Create all the tables we need for the sentence templates.
+
 # establishing connection to database that contains our vocabulary etc.
 conn = sqlite3.connect("parsextoto.sqlite")
 # enable name-based access to columns
 conn.row_factory = sqlite3.Row
 c = conn.cursor()
 
+
 c.execute("DROP TABLE IF EXISTS Template")
 cmd = """
 	CREATE TABLE Template (
 		TemplateID INTEGER PRIMARY KEY AUTOINCREMENT,
-		Template TEXT,
 		TotoPattern TEXT,
 		ParsPattern TEXT,
 		Suffix BOOLEAN,
-		SameGender BOOLEAN
+		SameGender BOOLEAN,
+		Template TEXT
 	)
 """
 c.execute(cmd)
 
 sen_tmp = [
-	(u'{toto.kein} {toto.self} ohne {pars.self}', 'NN:Nom_Sg', 'NN:Nom', 0, 0),
-	(u'{toto.jedes} {toto.self} ist {pars.self}', 'NN:Nom_Sg', 'ADJ:Pos_Pred', 0, 0),
-	(u'{toto.jedes} {toto.self} {pars.self}', 'NN:Nom_Sg', 'V:3_Sg_Pres_Ind', 0, 0),
-	(u'{toto.jedes} {toto.self} ist {pars.ein} {pars.self}', 'NN:Nom_Sg', 'ADJ:Pos_Nom_Sg_St', 0, 1),
-	(u'{toto.jedes} {toto.self} ist auch nur {pars.ein} {pars.self}', 'NN:Nom_Sg', 'NN:Nom_Sg', 1, 0),
-	(u'Zu {toto.jedes} {toto.self} gehört {pars.ein} {pars.self}', 'NN:Dat_Sg', 'NN:Nom_Sg', 0, 0),
-	(u'In {toto.jedes} {toto.self} steckt {pars.ein} {pars.self}', 'NN:Dat_Sg', 'NN:Nom_Sg', 0, 0),
-	(u'{pars.das} {pars.self} ist Teil {toto.jedes} {toto.self}', 'NN:Gen_Sg', 'NN:Nom_Sg', 0, 0),
-	(u'{toto.welches} {toto.self} ist {pars.das} {pars.self}?', 'NN:Nom_Sg', 'ADJ:Sup_Nom_Sg_St', 0, 1),
+	#---------------------------------------------------------------------------------------------------------------
+	# Toto			 Pars
+	#---------------------------------------------------------------------------------------------------------------
+	# NN, NN (pars is suffix of toto)
+	('NN:Nom_Sg',	'NN:Nom_Sg',		1, 0, u'{toto.jedes} {toto.self} ist auch nur {pars.ein} {pars.self}'),
+	('NN:Nom_Pl',	'NN:Nom_Pl',		1, 0, u'{toto.self} sind auch nur {pars.self}'),
+	# NN (Nom), NN
+	('NN:Nom_Sg',	'NN:Nom',			0, 0, u'{toto.kein} {toto.self} ohne {pars.self}'),
+	('NN:Nom_Sg',	'NN:Nom',			0, 0, u'Undenkbar: {toto.ein} {toto.self} ohne {pars.self}'),
+	('NN:Nom_Sg',	'NN:Nom',			0, 0, u'Was wäre {toto.ein} {toto.self} ohne {pars.self}?'),
+	('NN:Nom_Sg',	'NN:Gen_Sg',		0, 0, u'{toto.das} {toto.self} bildet den Rahmen {pars.jedes} {pars.self}'),
+	('NN:Nom_Pl',	'NN:Nom',			0, 0, u'Keine {toto.self} ohne {pars.self}'),	
+	('NN:Nom_Pl',	'NN:Nom_Sg',		0, 0, u'Alle {toto.self} enthalten {pars.ein} {pars.self}'),
+	('NN:Nom_Pl',	'NN:Nom_Pl',		0, 0, u'Alle {toto.self} enthalten {pars.self}'),
+	# NN (Acc), NN
+	('NN:Acc_Sg',	'NN:Nom_Sg',		0, 0, u'Wie kommt {pars.das} {pars.self} in {toto.das} {toto.self}?'),
+	('NN:Acc_Sg',	'NN:Nom',			0, 0, u'Es gibt {toto.kein} {toto.self} ohne {pars.self}'),
+	('NN:Acc_Pl',	'NN:Nom',			0, 0, u'Es gibt keine {toto.self} ohne {pars.self}'),
+	# NN (Dat), NN
+	('NN:Dat_Sg',	'NN:Nom_Sg',		0, 0, u'Was macht {pars.das} {pars.self} in {toto.das} {toto.self}?'),
+	('NN:Dat_Sg',	'NN:Nom_Sg',		0, 0, u'Zu {toto.jedes} {toto.self} gehört {pars.ein} {pars.self}'),
+	('NN:Dat_Sg',	'NN:Nom_Sg',		0, 0, u'In {toto.jedes} {toto.self} steckt {pars.ein} {pars.self}'),
+	# NN (Gen), NN
+	('NN:Gen_Sg',	'NN:Nom_Sg',		0, 0, u'{pars.das} {pars.self} ist Teil {toto.jedes} {toto.self}'),
+	('NN:Gen_Pl',	'NN:Nom_Sg',		0, 0, u'{pars.das} {pars.self} ist Teil aller {toto.self}'),
+	# NN, ADJ (predicative)
+	('NN:Nom_Sg',	'ADJ:Pos_Pred',		0, 0, u'{toto.jedes} {toto.self} ist {pars.self}'),
+	('NN:Nom_Sg',	'ADJ:Pos_Pred',		0, 0, u'Ist {toto.jedes} {toto.self} {pars.self}?'),
+	('NN:Nom_Pl',	'ADJ:Pos_Pred',		0, 0, u'Alle {toto.self} sind {pars.self}'),
+	('NN:Nom_Pl',	'ADJ:Pos_Pred',		0, 0, u'Sind alle {toto.self} {pars.self}?'),
+	# NN, ADJ (attributive)
+	('NN:Nom_Sg',	'ADJ:Pos_Nom_Sg_St',0, 1, u'{toto.jedes} {toto.self} ist {pars.ein} {pars.self}'),
+	('NN:Nom_Pl',	'ADJ:Pos_Nom_Pl_St',0, 1, u'Alle {toto.self} sind {pars.self}'),
+	('NN:Nom_Sg',	'ADJ:Sup_Nom_Sg_St',0, 1, u'{toto.welches} {toto.self} ist {pars.das} {pars.self}?'),
+	('NN:Nom_Pl',	'ADJ:Sup_Nom_Pl_St',0, 1, u'Welche {toto.self} sind {pars.das} {pars.self}?'),
+	# NN, VB
+	('NN:Nom_Sg',	'V:3_Sg_Pres_Ind',	0, 0, u'{toto.jedes} {toto.self} {pars.self}'),
+	('NN:Nom_Pl',	'V:3_Pl_Pres_Ind',	0, 0, u'Alle {toto.self} {pars.self}'),
+	('NN:Nom_Sg',	'V:3_Sg_Past_Ind',	0, 0, u'{toto.jedes} {toto.self} {pars.self}'),
+	('NN:Nom_Pl',	'V:3_Pl_Past_Ind',	0, 0, u'Alle {toto.self} {pars.self}'),
+	# ADJ, VB
+	('ADJ:Pos_Pred','V:3_Sg_Pres_Ind',	0, 0, u'Alles, was {toto.self} ist, {pars.self}'),
+	# ADJ, NN
+	('ADJ:Pos_Pred','NN:Nom_Sg',		0, 0, u'Alles, was {toto.self} ist, ist {pars.ein} {pars.self}'),
+	# VB, VB
+	('V:3_Sg_Pres_Ind','V:3_Sg_Pres_Ind',0, 0, u'Alles, was {toto.self}, {pars.self}'),
 ]
 
 c.executemany('INSERT INTO Template VALUES (NULL, ?, ?, ?, ?, ?)', sen_tmp)
+
+c.execute("DROP TABLE IF EXISTS Special_Test")
+cmd = """
+	CREATE TABLE Special_Test (
+		Wort TEXT
+	)
+"""
+c.execute(cmd)
+
+spec = [('Schaf',), ('Hund',), ('Schwein',), ('Pferd',)]
+
+c.executemany('INSERT INTO Special_Test VALUES (?)', spec)
 
 c.execute("DROP TABLE IF EXISTS Determiner")
 cmd = """
@@ -60,13 +112,13 @@ values = [
 	('die', 'eine',  'jede',  'keine',	'welche'),	# 3
 	('das',  None,   'jedes',  None,	'welches'),	# 4
 	('der',  None,   'jeder',  None,	'welcher'),	# 5
-	( None, 'ein',    None,   'kein',	 None),	# 6
+	( None, 'ein',    None,   'kein',	 None),		# 6
 	('den', 'einen', 'jeden', 'keinen',	'welchen'), # 7
 	('dem', 'einem', 'jedem', 'keinem',	'welchem'), # 8
 	('des', 'eines', 'jedes', 'keines',	'welches'), # 9
 	('der', 'einer', 'jeder', 'keiner',	'welcher'), # 10
 	('die',  None,    None,   'keine',	'welche'),  # 11
-	('den',  None,    None,   'keinen',	'welche'), # 12
+	('den',  None,    None,   'keinen',	'welche'), 	# 12
 	('der',  None,    None,   'keiner',	'welchen'), # 13
 	('',    '',      '',      '',		'')			# 14
 ]

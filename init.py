@@ -18,13 +18,13 @@ connection.row_factory = sqlite3.Row
 
 cursor = connection.cursor()
 
-cursor.execute("DROP TABLE IF EXISTS Wort")
-cursor.execute("DROP TABLE IF EXISTS Morph")
-cursor.execute("DROP TABLE IF EXISTS Features")
+# cursor.execute("DROP TABLE IF EXISTS Wort")
+# cursor.execute("DROP TABLE IF EXISTS Morph")
+# cursor.execute("DROP TABLE IF EXISTS Features")
 
-cursor.execute('CREATE TABLE Wort (WortID INTEGER PRIMARY KEY, Wort TEXT, POS TEXT, Morpheme TEXT)')
-cursor.execute('CREATE TABLE Morph (WortID INTEGER, FeatureID INTEGER)')
-cursor.execute('CREATE TABLE Features (FeatureID INTEGER PRIMARY KEY, Features TEXT)')
+# cursor.execute('CREATE TABLE Wort (WortID INTEGER PRIMARY KEY, Wort TEXT, POS TEXT, Morpheme TEXT)')
+# cursor.execute('CREATE TABLE Morph (WortID INTEGER, FeatureID INTEGER)')
+# cursor.execute('CREATE TABLE Features (FeatureID INTEGER PRIMARY KEY, Features TEXT)')
 
 word_id = 0
 done = True
@@ -46,7 +46,7 @@ for line in f:
 
 			if word_id % 10000 == 0:
 				print word_id, word
-				connection.commit()	
+				#connection.commit()	
 		else:
 			done = True
 		
@@ -111,7 +111,7 @@ for line in f:
 					#print morph, tag, '_'.join(feats)
 
 					cmd = u'INSERT INTO Wort (WortID, Wort, POS, Morpheme) VALUES (%s, "%s", "%s", "%s")' % (word_id, word, tag, morph)
-					cursor.execute(cmd)
+					#cursor.execute(cmd)
 
 					first_analysis = False
 				
@@ -122,9 +122,11 @@ for line in f:
 				if not feat_id:
 					feat_id = len(feat_ids) + 1
 					feat_ids[feat_str] = feat_id
-					cursor.execute(u'INSERT INTO Features (FeatureID, Features) VALUES (%s, "%s")' % (feat_id, feat_str))
+					#cursor.execute(u'INSERT INTO Features (FeatureID, Features) VALUES (%s, "%s")' % (feat_id, feat_str))
 
-				cursor.execute(u'INSERT INTO Morph (WortID, FeatureID) VALUES (%s, "%s")' % (word_id, feat_id))
+				#cursor.execute(u'INSERT INTO Morph (WortID, FeatureID) VALUES (%s, "%s")' % (word_id, feat_id))
+			elif tag != 'V':
+				print word, tag, morph, "%s:%s" % (tag, '_'.join(feats)), line
 	
 
 			
